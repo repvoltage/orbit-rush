@@ -344,6 +344,7 @@ var g = {
     switchPulse: 0,
     overT: 0,
     retryT: 0,
+    shareNote: 0,
     newBest: false,
     corePulse: 0,
     hot: [],
@@ -436,6 +437,16 @@ function die() {
     }
 }
 
+
+function shareScore() {
+    var score = Math.floor(g.score);
+    var text = 'I scored ' + score + ' in Orbit Rush! Can you beat it? https://repvoltage.github.io/orbit-rush/';
+    if (navigator.share) {
+        navigator.share({ text: text }).catch(function () {});
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { g.shareNote = 1.6; }).catch(function () {});
+    }
+}
 function tap() {
     audio();
     if (g.phase === 'ready') { start(false); return; }
@@ -519,6 +530,12 @@ function drawOver() {
     ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, btnY, bw, 30, 15); else ctx.rect(bx, btnY, bw, 30); ctx.fill(); ctx.stroke();
     text('WATCH VIDEO TO RETRY', bx + bw / 2, btnY + 19, 11, '#ffd166', 700);
     g.hot.push({ x: bx, y: btnY, w: bw, h: 30, id: 'ad-retry' });
+    var shY = btnY + 42;
+    ctx.fillStyle = 'rgba(127,243,255,0.10)'; ctx.strokeStyle = 'rgba(127,243,255,0.45)';
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, shY, bw, 30, 15); else ctx.rect(bx, shY, bw, 30, 15); ctx.fill(); ctx.stroke();
+    text('SHARE SCORE', bx + bw / 2, shY + 19, 11, '#7ff3ff', 700);
+    g.hot.push({ x: bx, y: shY, w: bw, h: 30, id: 'share' });
+    if (g.shareNote > 0) text('Score copied - paste it anywhere!', bx + bw / 2, shY + 48, 10, '#7ff3ff');
     var infoY = narrow ? H * 0.82 : H * 0.52;
     var subY = narrow ? H * 0.82 : H * 0.62;
     if (g.retryT > 0) {
@@ -617,6 +634,7 @@ canvas.addEventListener('pointerdown', function (e) {
         if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) {
             if (h.id === 'ad-retry') { ads.showRewarded(function (ok) { if (ok) start(true); }); return; }
             if (h.id === 'ad-life') { ads.showRewarded(function (ok) { if (ok) grantLife(); }); return; }
+            if (h.id === 'share') { shareScore(); return; }
             return;
         }
     }
@@ -649,6 +667,7 @@ function frame(now) {
     if (g.shake > 0) g.shake = Math.max(0, g.shake - dt * 26);
     if (g.flash > 0) g.flash = Math.max(0, g.flash - dt * 2.4);
     if (g.switchPulse > 0) g.switchPulse = Math.max(0, g.switchPulse - dt * 4);
+    if (g.shareNote > 0) g.shareNote -= dt;
     if (g.phase === 'over') { g.overT += dt; if (g.retryT > 0) g.retryT = Math.max(0, g.retryT - dt); }
 
     tickLives();
