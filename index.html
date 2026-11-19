@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Orbit Rush - a one-tap arcade game</title>
+<meta name="description" content="An original arcade game for quick sessions: dodge the shards, chase the light, beat your best.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page">
+  <header class="site-header">
+    <h1>Orbit Rush</h1>
+    <p class="tagline">One tap, endless chase</p>
+    <p class="intro">An original arcade game for quick sessions: dodge the shards, chase the light, beat your best.</p>
+  </header>
+
+  <div class="game-frame">
+    <div class="game-topbar">
+      <button type="button" class="game-topbtn" id="btn-settings">Settings</button>
+      <div class="game-topscore" id="topscore">Score 0 &middot; Best 0</div>
+      <button type="button" class="game-topbtn" id="btn-scores">Scores</button>
+    </div>
+    <div class="game-canvas-wrap">
+      <canvas id="game" aria-label="Orbit Rush game"></canvas>
+
+      <div class="game-overlay" id="ov-settings" hidden>
+        <div class="game-panel">
+          <div class="game-panel-title">Settings</div>
+          <label class="game-panel-label">Volume
+            <input id="set-volume" type="range" min="0" max="100" value="80">
+          </label>
+          <button type="button" class="game-topbtn game-panel-row" id="set-vibration">Vibration: ON</button>
+          <label class="game-panel-label">Nickname (shows on the leaderboard)
+            <input id="set-name" class="game-input" type="text" maxlength="16" placeholder="e.g. OrbitKing">
+          </label>
+          <div class="game-panel-err" id="set-name-err" hidden></div>
+          <button type="button" class="game-topbtn game-panel-row" id="set-name-save">Save nickname</button>
+          <button type="button" class="game-topbtn" data-close>Close</button>
+        </div>
+      </div>
+
+      <div class="game-overlay" id="ov-name" hidden>
+        <div class="game-panel">
+          <div class="game-panel-title">Pick a nickname</div>
+          <div class="game-panel-sub">It shows beside your scores on the leaderboard. No real names or personal info.</div>
+          <input id="name-input" class="game-input" type="text" maxlength="16" placeholder="e.g. OrbitKing">
+          <div class="game-panel-err" id="name-err" hidden></div>
+          <button type="button" class="game-topbtn game-panel-row" id="name-save">Save</button>
+          <button type="button" class="game-topbtn" id="name-skip">Skip for now</button>
+        </div>
+      </div>
+
+      <div class="game-overlay" id="ov-scores" hidden>
+        <div class="game-panel">
+          <div class="game-panel-title">Scores</div>
+          <div class="game-panel-sub" id="scores-scope">Top scores</div>
+          <div id="scores-list"></div>
+          <div class="game-panel-sub">Recent runs</div>
+          <div id="recent-list"></div>
+          <button type="button" class="game-topbtn" data-close>Close</button>
+        </div>
+      </div>
+
+      <div class="game-overlay" id="ov-rewarded" hidden>
+        <div class="game-panel game-ad">
+          <div class="game-ad-brand">REPIX</div>
+          <div class="game-panel-sub">Games with soul.</div>
+          <div class="game-ad-bar"><div class="game-ad-fill game-ad-fill-3"></div></div>
+          <div class="game-panel-sub">Reward in <span id="ad-remain-r">3</span>s &middot; Simulated ad - real network later</div>
+        </div>
+      </div>
+
+      <div class="game-overlay" id="ov-interstitial" hidden>
+        <div class="game-panel game-ad">
+          <div class="game-ad-brand">REPIX</div>
+          <div class="game-panel-sub">More games coming soon.</div>
+          <div class="game-ad-bar"><div class="game-ad-fill game-ad-fill-4"></div></div>
+          <div class="game-panel-sub">Back in <span id="ad-remain-i">4</span>s &middot; Simulated ad - real network later</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="howto">
+    <h2>How to play</h2>
+    <dl>
+      <dt>Control</dt><dd>Tap anywhere on the game to switch between the inner and outer ring.</dd>
+      <dt>Goal</dt><dd>Dodge the red shards, collect light orbs and survive as the speed builds. Last-moment dodges score extra.</dd>
+      <dt>Lives</dt><dd>Each run costs one of 5 lives, shown top right with the timer below. A life returns every 10 minutes; if all 5 are gone, the next takes 50 minutes. A rewarded video gives a life back, or a free retry after a crash.</dd>
+      <dt>Scores</dt><dd>Every run joins the worldwide top scores, highest first. Pick a nickname (in Settings) and it shows beside your scores.</dd>
+    </dl>
+  </section>
+
+  <footer class="site-footer">
+    <p>Powered by Repix.</p>
+    <p><a href="privacy.html">Privacy Policy</a></p>
+  </footer>
+</main>
+<script src="game.js"></script>
+</body>
+</html>
