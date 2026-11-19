@@ -15,8 +15,15 @@ function load(key, fallback) {
         return JSON.parse(raw);
     } catch (e) { return fallback; }
 }
+var bridgeReady = false;
+function bridgeSave(key, value) {
+    if (bridgeReady && window.bridge) {
+        try { window.bridge.storage.set([key], [JSON.stringify(value)]); } catch (e) { /* ignore */ }
+    }
+}
 function save(key, value) {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* private mode */ }
+    bridgeSave(key, value);
 }
 
 var state = {
@@ -226,8 +233,44 @@ function runAdOverlay(kind) {
     }, 1000);
 }
 
-adHandlers.rewarded = function (onDone) { adResolve = onDone; runAdOverlay('rewarded'); };
-adHandlers.interstitial = function (onDone) { intResolve = onDone; runAdOverlay('interstitial'); };
+var bridgeAds = { rewardCb: null, intCb: null, rewarded: false };
+function initBridgeAds() {
+    try {
+        bridge.advertisement.setMinimumDelayBetweenInterstitial(30);
+        bridge.advertisement.on(bridge.EVENT_NAME.REWARDED_STATE_CHANGED, function (st) {
+            if (st === 'rewarded') bridgeAds.rewarded = true;
+            if (st === 'closed' || st === 'failed') {
+                var cb = bridgeAds.rewardCb; bridgeAds.rewardCb = null;
+                var ok = bridgeAds.rewarded; bridgeAds.rewarded = false;
+                if (cb) cb(ok);
+            }
+        });
+        bridge.advertisement.on(bridge.EVENT_NAME.INTERSTITIAL_STATE_CHANGED, function (st) {
+            if (st === 'opened') setAdPaused(true);
+            if (st === 'closed' || st === 'failed') {
+                setAdPaused(false);
+                var cb = bridgeAds.intCb; bridgeAds.intCb = null;
+                if (cb) cb();
+            }
+        });
+    } catch (e) { /* bridge ads unavailable */ }
+}
+adHandlers.rewarded = function (onDone) {
+    if (bridgeReady && window.bridge) {
+        bridgeAds.rewardCb = onDone; bridgeAds.rewarded = false;
+        bridge.advertisement.showRewarded();
+        return;
+    }
+    adResolve = onDone; runAdOverlay('rewarded');
+};
+adHandlers.interstitial = function (onDone) {
+    if (bridgeReady && window.bridge) {
+        bridgeAds.intCb = onDone;
+        bridge.advertisement.showInterstitial();
+        return;
+    }
+    intResolve = onDone; runAdOverlay('interstitial');
+};
 
 // ---------- settings wiring ----------
 els.setVolume.addEventListener('input', function () {
@@ -279,13 +322,13 @@ function fit() {
     if (h > maxH) {
         h = maxH;
         w = Math.round((h * 9) / 16);
-        canvas.style.width = w + 'px';
-    } else {
-        canvas.style.width = '100%';
     }
-    canvas.style.height = h + 'px';
+    // force display size to match backing size (beats stylesheet width:100%)
+    canvas.style.setProperty('width', w + 'px', 'important');
+    canvas.style.setProperty('height', h + 'px', 'important');
     canvas.style.margin = '0 auto';
-    W = w; H = h;
+    var rect = canvas.getBoundingClientRect();
+    W = Math.max(1, Math.round(rect.width)); H = Math.max(1, Math.round(rect.height));
     k = W / 342; // scale with width; 1 at phone portrait
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
@@ -307,7 +350,11 @@ function audio() {
     if (ac && ac.state === 'suspended') ac.resume();
     return ac;
 }
+var adPaused = false, platformPaused = false, platformMuted = false;
+function setAdPaused(v) { adPaused = v; }
+function isPaused() { return adPaused || platformPaused; }
 function beep(freq, dur, type, vol, slide) {
+    if (isPaused() || platformMuted) return;
     var a = audio(); if (!a) return;
     var v = vol * state.settings.volume;
     if (v <= 0.001) return;
@@ -432,7 +479,7 @@ function die() {
     var final = Math.floor(g.score);
     recordRunEnd(final);
     if (final > state.best) { g.newBest = true; setBest(final); }
-    if (isDay2Plus() && state.history.plays % 3 === 0) {
+    if (state.history.plays % 3 === 0) {
         ads.showInterstitial(function () { /* overlay closes itself */ });
     }
 }
@@ -448,6 +495,7 @@ function shareScore() {
     }
 }
 function tap() {
+    if (isPaused()) return;
     audio();
     if (g.phase === 'ready') { start(false); return; }
     if (g.phase === 'over') { if (g.overT > 0.5 && g.retryT <= 0) start(false); return; }
@@ -662,6 +710,7 @@ function frame(now) {
     requestAnimationFrame(frame);
     var dt = (now - last) / 1000; last = now;
     if (dt > 0.06) dt = 0.06;
+    if (isPaused()) { draw(); return; }
 
     g.corePulse += dt;
     if (g.shake > 0) g.shake = Math.max(0, g.shake - dt * 26);
@@ -745,5 +794,44 @@ refreshTopbar();
 
 // First-run nickname prompt
 if (!state.name) setOverlay('name');
+
+// ---------- Playgama Bridge (distribution build) ----------
+if (window.bridge) {
+    try {
+        bridge.initialize().then(function () {
+            bridgeReady = true;
+            initBridgeAds();
+            try { platformMuted = !bridge.platform.isAudioEnabled; } catch (e) { }
+            try {
+                bridge.platform.on(bridge.EVENT_NAME.AUDIO_STATE_CHANGED, function (en) { platformMuted = !en; });
+                bridge.platform.on(bridge.EVENT_NAME.PAUSE_STATE_CHANGED, function (p) { platformPaused = !!p; });
+            } catch (e) { }
+            try {
+                var skeys = ['orbit-rush-best.v1', 'orbit-rush-settings.v1', 'orbit-rush-lives.v1', 'orbit-rush-history.v1', 'orbit-rush-leaderboard.v1', 'orbit-rush-name.v1'];
+                bridge.storage.get(skeys).then(function (vals) {
+                    if (!vals) return;
+                    var map = {
+                        'orbit-rush-best.v1': 'best',
+                        'orbit-rush-settings.v1': 'settings',
+                        'orbit-rush-lives.v1': 'lives',
+                        'orbit-rush-history.v1': 'history',
+                        'orbit-rush-leaderboard.v1': 'board',
+                        'orbit-rush-name.v1': 'name'
+                    };
+                    for (var i = 0; i < skeys.length; i++) {
+                        var raw = Array.isArray(vals) ? vals[i] : vals[skeys[i]];
+                        if (raw == null) continue;
+                        try {
+                            var parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                            if (parsed != null) state[map[skeys[i]]] = parsed;
+                        } catch (e) { }
+                    }
+                    refreshTopbar();
+                }).catch(function () { });
+            } catch (e) { }
+            try { bridge.platform.sendMessage('game_ready'); } catch (e) { }
+        }).catch(function () { });
+    } catch (e) { }
+}
 
 })();
